@@ -3,10 +3,11 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
-
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -55,10 +56,54 @@ func getURL(id string) (URL, error) {
 	return url, nil
 
 }
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello World")
+}
+
+func allowCORS(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+}
+
+func ShortURLHandler(w http.ResponseWriter, r *http.Request) {
+	allowCORS(w)
+	var data struct {
+		URL string `json:"url"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "invalid req body", http.StatusBadRequest)
+		return
+	}
+	sortURL := CreateURl(data.URL)
+	fmt.Fprintf(w, "Short URL: %s", sortURL)
+
+}
+func redirectURLHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Path[len("/redirect/"):]
+	url, err := getURL(id)
+	if err != nil {
+		http.Error(w, "URL not found", http.StatusNotFound)
+		return
+	}
+	http.Redirect(w, r, url.URL, http.StatusFound)
+}
 
 func main() {
-	fmt.Println("welcome to URL-shortner")
-	OriginalURL := "https://github.com/YADAVLUV?tab=repositories"
-	generateShortURL(OriginalURL)
+	//fmt.Println("welcome to URL-shortner")
+	//OriginalURL := "https://github.com/YADAVLUV?tab=repositories"
+	//generateShortURL(OriginalURL)
 
+	//handler func
+	http.HandleFunc("/", handler)
+	http.HandleFunc("/shorten", ShortURLHandler)
+	http.HandleFunc("/redirect/", redirectURLHandler)
+
+	// start the http server on port 8080
+	fmt.Println("start the http server on port 8080")
+	err := http.ListenAndServe(":3000", nil)
+	if err != nil {
+		fmt.Println("Error on starting the server", err)
+	}
 }
